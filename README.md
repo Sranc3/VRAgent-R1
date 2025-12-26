@@ -42,49 +42,18 @@ Prepare video preference data in JSONL format:
 }
 ```
 
-Process data:
-
-```bash
-cd usagent
-python prepare_microlens_video_preference.py \
-    --data_path /path/to/data.jsonl \
-    --output_dir /path/to/processed
-```
 
 ### Training
 
-**PPO Training:**
-```bash
-cd usagent
-bash run_video_preference_ppo.sh
-```
 
 **GRPO Training:**
 ```bash
 cd usagent
 bash main_grpo_video.sh
+bash bash run_video_preference_ppo.sh
+...
 ```
 
-### Evaluation
-
-```bash
-cd usagent/eval_video
-python test_video.py --model_path /path/to/checkpoint
-```
-
-## Configuration
-
-Key parameters in training scripts:
-
-- `data.train_files`: Training data path
-- `actor_rollout_ref.model.path`: Base model path
-- `actor_rollout_ref.actor.optim.lr`: Learning rate
-- `trainer.n_gpus_per_node`: Number of GPUs per node
-- `trainer.total_epochs`: Training epochs
-
-## Results
-
-Results are saved in `usagent/outputs/`. Training logs are tracked with WandB (project: `GRPO_logic_video`).
 
 ## License
 
