@@ -19,14 +19,30 @@ VRAgent-R1 consists of two main components:
 
 ## Quick Start
 
+### Environment Setup
+
+We recommend using conda to create an isolated environment named `logic`:
+
+```bash
+# Create conda environment
+conda create -n logic python=3.10 -y
+conda activate logic
+
+# Install PyTorch (adjust CUDA version as needed)
+conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
+
+# Install project dependencies
+pip install -r requirements.txt
+```
+
 ### Installation
 
 ```bash
 git clone https://github.com/Sranc3/VRAgent-R1.git
 cd VRAgent-r1
 
-pip install torch transformers datasets accelerate wandb
-pip install pytorchvideo decord
+# Install dependencies
+pip install -r requirements.txt
 ```
 
 ### Data Preparation
