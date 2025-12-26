@@ -1,0 +1,153 @@
+data:
+  tokenizer: null
+  train_files: ./data/processed/video_preference_english/train.parquet
+  val_files: ./data/processed/video_preference_english/test.parquet
+  prompt_key: prompt
+  max_prompt_length: 512
+  max_response_length: 512
+  train_batch_size: 8  # 考虑到本地测试环境，减小批量大小
+  val_batch_size: 4
+  return_raw_input_ids: False
+  return_raw_chat: False
+
+actor_rollout_ref:
+  hybrid_engine: True
+  model:
+    path: /path/to/your/model  # 替换为你实际要使用的模型路径
+    external_lib: null
+    override_config: { }
+    enable_gradient_checkpointing: False
+    use_remove_padding: False
+  actor:
+    strategy: fsdp
+    ppo_mini_batch_size: 4
+    ppo_micro_batch_size: 1
+    use_dynamic_bsz: False
+    ppo_max_token_len_per_gpu: 16384
+    grad_clip: 1.0
+    clip_ratio: 0.2
+    entropy_coeff: 0.001
+    use_kl_loss: False
+    kl_loss_coef: 0.001
+    kl_loss_type: low_var_kl
+    ppo_epochs: 1
+    shuffle: False
+    ulysses_sequence_parallel_size: 1
+    optim:
+      lr: 5e-7  # 降低学习率，避免过拟合
+      lr_warmup_steps_ratio: 0.1
+      min_lr_ratio: null
+      warmup_style: constant
+      total_training_steps: -1
+    fsdp_config:
+      wrap_policy:
+        min_num_params: 0
+      param_offload: False
+      grad_offload: False
+      optimizer_offload: False
+      fsdp_size: -1
+  ref:
+    fsdp_config:
+      param_offload: False
+      wrap_policy:
+        min_num_params: 0
+      fsdp_size: -1
+    log_prob_micro_batch_size: 1
+    log_prob_use_dynamic_bsz: ${actor_rollout_ref.actor.use_dynamic_bsz}
+    log_prob_max_token_len_per_gpu: ${actor_rollout_ref.actor.ppo_max_token_len_per_gpu}
+    ulysses_sequence_parallel_size: ${actor_rollout_ref.actor.ulysses_sequence_parallel_size}
+  rollout:
+    name: vllm
+    temperature: 1.0
+    top_k: -1
+    top_p: 1
+    prompt_length: ${data.max_prompt_length}
+    response_length: ${data.max_response_length}
+    dtype: bfloat16
+    gpu_memory_utilization: 0.5
+    ignore_eos: False
+    enforce_eager: True
+    free_cache_engine: True
+    load_format: dummy_dtensor
+    tensor_model_parallel_size: 1  # 单GPU设置
+    max_num_batched_tokens: 4096
+    max_num_seqs: 32
+    log_prob_micro_batch_size: 1
+    log_prob_use_dynamic_bsz: ${actor_rollout_ref.actor.use_dynamic_bsz}
+    log_prob_max_token_len_per_gpu: ${actor_rollout_ref.actor.ppo_max_token_len_per_gpu}
+    do_sample: True
+    n: 1
+
+critic:
+  strategy: fsdp
+  optim:
+    lr: 5e-7
+    lr_warmup_steps_ratio: 0.1
+    min_lr_ratio: null
+    warmup_style: constant
+    total_training_steps: -1
+  model:
+    path: /path/to/your/model  # 替换为你实际要使用的模型路径
+    tokenizer_path: ${actor_rollout_ref.model.path}
+    override_config: { }
+    external_lib: ${actor_rollout_ref.model.external_lib}
+    enable_gradient_checkpointing: False
+    use_remove_padding: False
+    fsdp_config:
+      param_offload: False
+      grad_offload: False
+      optimizer_offload: False
+      wrap_policy:
+        min_num_params: 0
+      fsdp_size: -1
+  ppo_mini_batch_size: ${actor_rollout_ref.actor.ppo_mini_batch_size}
+  ppo_micro_batch_size: 1
+  forward_micro_batch_size: ${critic.ppo_micro_batch_size}
+  use_dynamic_bsz: ${actor_rollout_ref.actor.use_dynamic_bsz}
+  ppo_max_token_len_per_gpu: 16384
+  forward_max_token_len_per_gpu: ${critic.ppo_max_token_len_per_gpu}
+  ulysses_sequence_parallel_size: 1
+  ppo_epochs: ${actor_rollout_ref.actor.ppo_epochs}
+  shuffle: ${actor_rollout_ref.actor.shuffle}
+  grad_clip: 1.0
+  cliprange_value: 0.5
+
+reward_model:
+  enable: False  # 我们使用规则型奖励函数，不需要奖励模型
+  strategy: fsdp
+  model:
+    input_tokenizer: ${actor_rollout_ref.model.path}
+    path: ~/models/deepseek-llm-7b-chat
+    external_lib: ${actor_rollout_ref.model.external_lib}
+    use_remove_padding: False
+    fsdp_config:
+      min_num_params: 0
+      param_offload: False
+  micro_batch_size: 1
+  max_length: null
+  ulysses_sequence_parallel_size: 1
+  use_dynamic_bsz: ${critic.use_dynamic_bsz}
+  forward_max_token_len_per_gpu: ${critic.forward_max_token_len_per_gpu}
+
+algorithm:
+  gamma: 1.0
+  lam: 1.0
+  adv_estimator: gae
+  kl_penalty: kl
+  kl_ctrl:
+    type: fixed
+    kl_coef: 0.001
+
+trainer:
+  total_epochs: 10  # 减少训练轮数，避免过拟合
+  total_training_steps: null
+  project_name: verl_examples
+  experiment_name: video_preference
+  logger: [ 'console' ]  # 移除wandb，只使用控制台日志
+  nnodes: 1
+  n_gpus_per_node: 1  # 单GPU设置
+  save_freq: 1  # 每轮保存一次
+  test_freq: 1  # 每轮测试一次
+  critic_warmup: 0
+  default_hdfs_dir: ./experiments/video_preference/ppo/${trainer.experiment_name}
+  default_local_dir: ./checkpoints/${trainer.project_name}/${trainer.experiment_name} 
