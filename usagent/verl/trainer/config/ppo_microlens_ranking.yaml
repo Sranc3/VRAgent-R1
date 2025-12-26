@@ -1,0 +1,131 @@
+data:
+  tokenizer: null
+  train_files: ./data/processed/microlens_ranking_rl/train.parquet
+  val_files: ./data/processed/microlens_ranking_rl/test.parquet
+  prompt_key: prompt
+  max_prompt_length: 512
+  max_response_length: 512
+  shuffle: true
+  n_examples: null
+  n_epochs: 3
+  cache_dir: ./cache
+
+actor:
+  model: meta-llama/Llama-2-7b-chat-hf
+  from_config: true
+  use_flash_attention_2: true
+  peft_config:
+    peft_type: lora
+    task_type: CAUSAL_LM
+    r: 8
+    lora_alpha: 16
+    lora_dropout: 0.05
+    target_modules:
+      - q_proj
+      - k_proj
+      - v_proj
+      - o_proj
+    modules_to_save: null
+
+sft:
+  optim:
+    name: adamw
+    kwargs:
+      lr: 1.0e-5
+      weight_decay: 0.0
+      eps: 1.0e-8
+      betas:
+      - 0.9
+      - 0.95
+  scheduler:
+    name: cosine_annealing
+    kwargs:
+      T_max: 1000
+      eta_min: 1.0e-6
+  batching:
+    batch_size: 2
+    grad_accum: 8
+  max_grad_norm: 1.0
+  max_steps: 1000
+  val_batches: 10
+  early_stopping:
+    patience: 3
+    min_delta: 0.0
+    mode: max
+    monitor: rw_mean
+  callbacks: []
+
+reward:
+  model: meta-llama/Llama-2-7b-chat-hf
+  from_config: true
+  score_fn:
+    name: video_ranking
+    kwargs: {}
+  sft_config:
+    data:
+      cache_dir: ./cache
+    optim:
+      name: adamw
+      kwargs:
+        lr: 1.0e-5
+        weight_decay: 0.0
+        eps: 1.0e-8
+        betas:
+        - 0.9
+        - 0.95
+    scheduler:
+      name: cosine_annealing
+      kwargs:
+        T_max: 1000
+        eta_min: 1.0e-6
+    batching:
+      batch_size: 2
+      grad_accum: 8
+    max_grad_norm: 1.0
+    max_steps: 1000
+    early_stopping:
+      patience: 3
+      min_delta: 0.0
+      mode: max
+      monitor: val_accuracy
+  peft_config:
+    peft_type: lora
+    task_type: CAUSAL_LM
+    r: 16
+    lora_alpha: 16
+    lora_dropout: 0.05
+    target_modules:
+      - q_proj
+      - k_proj
+      - v_proj
+      - o_proj
+    modules_to_save: null
+
+actor_ref:
+  model: meta-llama/Llama-2-7b-chat-hf
+  from_config: true
+  optim: null
+
+ppo:
+  epoch: 2
+  mini_batch_size: 1
+  clip_range: 0.2
+  kl_coef: 0.1
+  gamma: 1.0
+  lambda: 0.95
+  cliprange_value: 0.2
+  clip_reward: 0.0
+  value_loss_coef: 0.1
+  batching:
+    batch_size: 2
+    grad_accum: 1
+  offload_to_cpu: true
+  seed: 42
+  device: cuda:0
+  max_grad_norm: 1.0
+  normalize: false
+  early_stopping:
+    patience: 5
+    min_delta: 0.0
+    mode: max
+    monitor: reward/mean 
