@@ -6,24 +6,9 @@ A reinforcement learning-based video recommendation agent system that combines l
 
 VRAgent-R1 consists of two main components:
 
-- **ipagent**: Multi-modal sequential recommendation model based on SASRec
-- **usagent**: Reinforcement learning training framework (PPO/GRPO) for video preference prediction
+- **IP Agent**: Multi-modal item perception based on MLLM, e.g., Qwen-2.5VL
+- **US Agent**: User Simulation agent based on GRPO reinforcement learning
 
-## Project Structure
-
-```
-VRAgent-r1/
-├── ipagent/                    # Sequential recommendation module
-│   ├── SASRec/                 # SASRec model implementation
-│   └── qwen.py                 # Qwen2-VL model integration
-│
-└── usagent/                    # RL training module
-    ├── verl/                   # veRL framework integration
-    ├── utils/                  # Utility functions and reward functions
-    ├── run_video_like_ppo.sh   # Video like PPO training
-    ├── run_video_preference_ppo.sh  # Video preference PPO training
-    └── main_grpo_video.sh     # GRPO training
-```
 
 ## Features
 
